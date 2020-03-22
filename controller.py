@@ -10,6 +10,7 @@ from mlp_generator import MLPSearchSpace
 
 from CONSTANTS import *
 
+
 class Controller(MLPSearchSpace):
 
     def __init__(self):
@@ -20,8 +21,9 @@ class Controller(MLPSearchSpace):
         self.controller_lr = CONTROLLER_LEARNING_RATE
         self.controller_decay = CONTROLLER_DECAY
         self.controller_momentum = CONTROLLER_MOMENTUM
+        self.use_predictor = CONTROLLER_USE_PREDICTOR
 
-        self.hybrid_weights = 'LOGS/hybrid_weights.h5'
+        self.controller_weights = 'LOGS/controller_weights.h5'
 
         self.seq_data = []
 
@@ -41,12 +43,13 @@ class Controller(MLPSearchSpace):
             while len(seed) < self.max_len:
                 sequence = pad_sequences([seed], maxlen=self.max_len - 1, padding='post')
                 sequence = sequence.reshape(1, 1, self.max_len - 1)
-                (probab, _) = model.predict(sequence)
+                if self.use_predictor:
+                    (probab, _) = model.predict(sequence)
+                else:
+                    probab = model.predict(sequence)
                 probab = probab[0][0]
                 next = np.random.choice(vocab_idx, size=1, p=probab)[0]
                 if next == dropout_id and len(seed) == 0:
-                    continue
-                if next == dropout_id and len(seed) == self.max_len - 2:
                     continue
                 if next == final_layer_id and len(seed) == 0:
                     continue
@@ -62,6 +65,29 @@ class Controller(MLPSearchSpace):
                 samples.append(seed)
                 self.seq_data.append(seed)
         return samples
+
+    def control_model(self, controller_input_shape, controller_batch_size):
+        main_input = Input(shape=controller_input_shape, batch_shape=controller_batch_size, name='main_input')
+        x = LSTM(self.controller_lstm_dim, return_sequences=True)(main_input)
+        main_output = Dense(self.controller_classes, activation='softmax', name='main_output')(x)
+        model = Model(inputs=[main_input], outputs=[main_output])
+        return model
+
+    def train_control_model(self, model, x_data, y_data, loss_func, controller_batch_size, nb_epochs):
+        if self.controller_optimizer == 'sgd':
+            optim = optimizers.SGD(lr=self.controller_lr, decay=self.controller_decay, momentum=self.controller_momentum, clipnorm=1.0)
+        else:
+            optim = getattr(optimizers, self.controller_optimizer)(lr=self.controller_lr, decay=self.controller_decay, clipnorm=1.0)
+        model.compile(optimizer=optim, loss={'main_output': loss_func})
+        if os.path.exists(self.controller_weights):
+            model.load_weights(self.controller_weights)
+        print("TRAINING CONTROLLER...")
+        model.fit({'main_input': x_data},
+                  {'main_output': y_data.reshape(len(y_data), 1, self.controller_classes)},
+                  epochs=nb_epochs,
+                  batch_size=controller_batch_size,
+                  verbose=0)
+        model.save_weights(self.controller_weights)
 
     def hybrid_control_model(self, controller_input_shape, controller_batch_size):
         main_input = Input(shape=controller_input_shape, batch_shape=controller_batch_size, name='main_input')
@@ -79,16 +105,16 @@ class Controller(MLPSearchSpace):
         model.compile(optimizer=optim,
                       loss={'main_output': loss_func, 'predictor_output': 'mse'},
                       loss_weights={'main_output': 1, 'predictor_output': 1})
-        if os.path.exists(self.hybrid_weights):
-            model.load_weights(self.hybrid_weights)
+        if os.path.exists(self.controller_weights):
+            model.load_weights(self.controller_weights)
         print("TRAINING CONTROLLER...")
         model.fit({'main_input': x_data},
                   {'main_output': y_data.reshape(len(y_data), 1, self.controller_classes),
                    'predictor_output': np.array(pred_target).reshape(len(pred_target), 1, 1)},
                   epochs=nb_epochs,
-                  batch_size=controller_batch_size)
-                  # verbose=0)
-        model.save_weights(self.hybrid_weights)
+                  batch_size=controller_batch_size,
+                  verbose=0)
+        model.save_weights(self.controller_weights)
 
     def get_predicted_accuracies_hybrid_model(self, model, seqs):
         pred_accuracies = []

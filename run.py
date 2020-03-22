@@ -12,6 +12,4 @@ y = pd.get_dummies(data['quality_label']).values
 nas_object = MLPNAS(x, y)
 data = nas_object.search()
 
-log_event()
-
 get_top_n_architectures(TOP_N)

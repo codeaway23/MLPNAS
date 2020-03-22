@@ -1,11 +1,11 @@
 ########################################################
 #                   NAS PARAMETERS                     #
 ########################################################
-CONTROLLER_SAMPLING_EPOCHS = 20
+CONTROLLER_SAMPLING_EPOCHS = 10
 SAMPLES_PER_CONTROLLER_EPOCH = 10
 CONTROLLER_TRAINING_EPOCHS = 10
 ARCHITECTURE_TRAINING_EPOCHS = 10
-CONTROLLER_LOSS_ALPHA = 0.8
+CONTROLLER_LOSS_ALPHA = 0.9
 
 ########################################################
 #               CONTROLLER PARAMETERS                  #
@@ -15,6 +15,7 @@ CONTROLLER_OPTIMIZER = 'Adam'
 CONTROLLER_LEARNING_RATE = 0.01
 CONTROLLER_DECAY = 0.1
 CONTROLLER_MOMENTUM = 0.0
+CONTROLLER_USE_PREDICTOR = True
 
 ########################################################
 #                   MLP PARAMETERS                     #

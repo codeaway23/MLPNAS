@@ -68,3 +68,64 @@ MLP_DROPOUT = 0.2
 MLP_LOSS_FUNCTION = 'categorical_crossentropy'
 MLP_ONE_SHOT = True
 ```
+
+## Results
+
+### One shot with accuracy predictor
+```
+Top 5 Architectures:
+Architecture [(8, 'relu'), (32, 'sigmoid'), (3, 'softmax')]
+Validation Accuracy: 0.7115769841454246
+Architecture [(128, 'sigmoid'), (16, 'tanh'), (3, 'softmax')]
+Validation Accuracy: 0.6857143044471741
+Architecture [(8, 'elu'), (3, 'softmax')]
+Validation Accuracy: 0.6830426801334728
+Architecture [(8, 'relu'), (512, 'elu'), (3, 'softmax')]
+Validation Accuracy: 0.6779962875626304
+Architecture [(8, 'tanh'), (32, 'relu'), (3, 'softmax')]
+Validation Accuracy: 0.6693877577781677
+```
+### One shot without accuracy predictor
+```
+Top 5 Architectures:
+Architecture [(64, 'relu'), (32, 'elu'), (3, 'softmax')]
+Validation Accuracy: 0.7528385931795294
+Architecture [(256, 'elu'), (8, 'relu'), (3, 'softmax')]
+Validation Accuracy: 0.6979591846466064
+Architecture [(8, 'tanh'), (16, 'tanh'), (3, 'softmax')]
+Validation Accuracy: 0.6877551078796387
+Architecture [(16, 'sigmoid'), (64, 'elu'), (3, 'softmax')]
+Validation Accuracy: 0.6612244844436646
+Architecture [(16, 'tanh'), (512, 'sigmoid'), (3, 'softmax')]
+Validation Accuracy: 0.6569202412258495
+```
+
+###  With only accuracy predictor
+```
+Top 5 Architectures:
+Architecture [(512, 'elu'), (128, 'relu'), (3, 'softmax')]
+Validation Accuracy: 0.6703154022043402
+Architecture [(256, 'relu'), (128, 'relu'), (3, 'softmax')]
+Validation Accuracy: 0.6697588010267778
+Architecture [(256, 'elu'), (128, 'relu'), (3, 'softmax')]
+Validation Accuracy: 0.669721706347032
+Architecture [(16, 'sigmoid'), (8, 'elu'), (3, 'softmax')]
+Validation Accuracy: 0.6693877577781677
+Architecture [(256, 'relu'), (32, 'tanh'), (3, 'softmax')]
+Validation Accuracy: 0.6632652878761292
+```
+
+### Without either
+``` 
+Top 5 Architectures:
+Architecture [(32, 'sigmoid'), (64, 'elu'), (3, 'softmax')]
+Validation Accuracy: 0.6900556434284557
+Architecture [(128, 'elu'), (16, 'sigmoid'), (3, 'softmax')]
+Validation Accuracy: 0.6836734414100647
+Architecture [(128, 'tanh'), (512, 'sigmoid'), (3, 'softmax')]
+Validation Accuracy: 0.6754360155625777
+Architecture [(256, 'sigmoid'), (8, 'relu'), (3, 'softmax')]
+Validation Accuracy: 0.6714285612106323
+Architecture [(128, 'sigmoid'), (256, 'elu'), (3, 'softmax')]
+Validation Accuracy: 0.669276423887773
+```

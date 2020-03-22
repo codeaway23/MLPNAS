@@ -3,7 +3,6 @@ import warnings
 import pandas as pd
 from keras import optimizers
 from keras.models import Sequential
-from keras.utils import to_categorical
 from keras.layers import Flatten, Dense, Dropout
 
 from CONSTANTS import *
@@ -155,12 +154,20 @@ class MLPGenerator(MLPSearchSpace):
                 j += 1
 
     def train_model(self, model, x_data, y_data, nb_epochs, validation_split=0.1, callbacks=None):
-        if self.target_classes > 2:
-            y_data = to_categorical(y_data)
         if self.mlp_one_shot:
             self.set_model_weights(model)
-            history = model.fit(x_data, y_data, epochs=nb_epochs, validation_split=validation_split, callbacks=callbacks)
+            history = model.fit(x_data,
+                                y_data,
+                                epochs=nb_epochs,
+                                validation_split=validation_split,
+                                callbacks=callbacks,
+                                verbose=0)
             self.update_weights(model)
         else:
-            history = model.fit(x_data, y_data, epochs=nb_epochs, validation_split=validation_split, callbacks=callbacks)
+            history = model.fit(x_data,
+                                y_data,
+                                epochs=nb_epochs,
+                                validation_split=validation_split,
+                                callbacks=callbacks,
+                                verbose=0)
         return history

@@ -34,7 +34,8 @@ class Controller(MLPSearchSpace):
         dropout_id = final_layer_id - 1
         vocab_idx = [0] + list(self.vocab.keys())
         samples = []
-        print("generating architecture samples...")
+        print("GENERATING ARCHITECTURE SAMPLES...")
+        print('------------------------------------------------------')
         while len(samples) < number_of_samples:
             seed = []
             while len(seed) < self.max_len:
@@ -80,12 +81,13 @@ class Controller(MLPSearchSpace):
                       loss_weights={'main_output': 1, 'predictor_output': 1})
         if os.path.exists(self.hybrid_weights):
             model.load_weights(self.hybrid_weights)
-        print("training controller...")
+        print("TRAINING CONTROLLER...")
         model.fit({'main_input': x_data},
                   {'main_output': y_data.reshape(len(y_data), 1, self.controller_classes),
                    'predictor_output': np.array(pred_target).reshape(len(pred_target), 1, 1)},
                   epochs=nb_epochs,
                   batch_size=controller_batch_size)
+                  # verbose=0)
         model.save_weights(self.hybrid_weights)
 
     def get_predicted_accuracies_hybrid_model(self, model, seqs):

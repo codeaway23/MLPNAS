@@ -84,7 +84,7 @@ class MLPNAS(Controller):
         discounted_r = np.zeros_like(rewards, dtype=np.float32)
         running_add = 0.
         exp = 0.
-        for t in reversed(range(len(rewards))):
+        for t in range(len(rewards)):
             running_add += self.controller_loss_alpha**exp * rewards[t]
             discounted_r[t] = running_add
             exp += 1
@@ -96,7 +96,7 @@ class MLPNAS(Controller):
         reward = np.array([item[1] - baseline for item in self.data[-self.samples_per_controller_epoch:]]).reshape(
             self.samples_per_controller_epoch, 1)
         discounted_reward = self.get_discounted_reward(reward)
-        loss = - K.sum(target * K.log(output / K.sum(output)), axis=-1) * discounted_reward
+        loss = - K.log(output) * discounted_reward[:, None]
         return loss
 
     def train_controller(self, model, x, y, pred_accuracy=None):

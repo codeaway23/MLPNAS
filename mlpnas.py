@@ -82,12 +82,13 @@ class MLPNAS(Controller):
 
     def get_discounted_reward(self, rewards):
         discounted_r = np.zeros_like(rewards, dtype=np.float32)
-        running_add = 0.
-        exp = 0.
         for t in range(len(rewards)):
-            running_add += self.controller_loss_alpha**exp * rewards[t]
+            running_add = 0.
+            exp = 0.
+            for r in rewards[t:]:
+                running_add += self.controller_loss_alpha**exp * r
+                exp += 1
             discounted_r[t] = running_add
-            exp += 1
         discounted_r = (discounted_r - discounted_r.mean()) / discounted_r.std()
         return discounted_r
 

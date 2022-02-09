@@ -67,7 +67,7 @@ class Controller(MLPSearchSpace):
         return samples
 
     def control_model(self, controller_input_shape, controller_batch_size):
-        main_input = Input(shape=controller_input_shape, batch_shape=controller_batch_size, name='main_input')
+        main_input = Input(shape=controller_input_shape, name='main_input')
         x = LSTM(self.controller_lstm_dim, return_sequences=True)(main_input)
         main_output = Dense(self.controller_classes, activation='softmax', name='main_output')(x)
         model = Model(inputs=[main_input], outputs=[main_output])
@@ -90,7 +90,7 @@ class Controller(MLPSearchSpace):
         model.save_weights(self.controller_weights)
 
     def hybrid_control_model(self, controller_input_shape, controller_batch_size):
-        main_input = Input(shape=controller_input_shape, batch_shape=controller_batch_size, name='main_input')
+        main_input = Input(shape=controller_input_shape, name='main_input')
         x = LSTM(self.controller_lstm_dim, return_sequences=True)(main_input)
         predictor_output = Dense(1, activation='sigmoid', name='predictor_output')(x)
         main_output = Dense(self.controller_classes, activation='softmax', name='main_output')(x)

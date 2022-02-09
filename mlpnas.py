@@ -1,6 +1,6 @@
 import pickle
 import keras.backend as K
-from keras.utils import to_categorical
+from tensorflow.keras.utils import to_categorical
 from keras.preprocessing.sequence import pad_sequences
 
 from CONSTANTS import *

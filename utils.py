@@ -8,7 +8,6 @@ from matplotlib import pyplot as plt
 from CONSTANTS import *
 from mlp_generator import MLPSearchSpace
 
-
 ########################################################
 #                   DATA PROCESSING                    #
 ########################################################
@@ -40,11 +39,13 @@ def log_event():
     filelist = os.listdir('LOGS')
     for file in filelist:
         if os.path.isfile('LOGS/{}'.format(file)):
-            shutil.move('LOGS/{}'.format(file),dest)
+            shutil.move('LOGS/{}'.format(file), dest)
 
 
 def get_latest_event_id():
-    all_subdirs = ['LOGS/' + d for d in os.listdir('LOGS') if os.path.isdir('LOGS/' + d)]
+    all_subdirs = [
+        'LOGS/' + d for d in os.listdir('LOGS') if os.path.isdir('LOGS/' + d)
+    ]
     latest_subdir = max(all_subdirs, key=os.path.getmtime)
     return int(latest_subdir.replace('LOGS/event', ''))
 
@@ -68,9 +69,11 @@ def sort_search_data(nas_data):
     nas_data = [nas_data[x] for x in sorted_idx]
     return nas_data
 
+
 ########################################################
 #                EVALUATION AND PLOTS                  #
 ########################################################
+
 
 def get_top_n_architectures(n):
     data = load_nas_data()
@@ -92,12 +95,9 @@ def get_nas_accuracy_plot():
 def get_accuracy_distribution():
     event = get_latest_event_id()
     data = load_nas_data()
-    accuracies = [x[1]*100. for x in data]
+    accuracies = [x[1] * 100. for x in data]
     accuracies = [int(x) for x in accuracies]
     sorted_accs = np.sort(accuracies)
     count_dict = {k: len(list(v)) for k, v in groupby(sorted_accs)}
     plt.bar(list(count_dict.keys()), list(count_dict.values()))
     plt.show()
-
-
-

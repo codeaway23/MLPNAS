@@ -21,3 +21,16 @@ nas_object = MLPNAS(x, y)
 data = nas_object.search()
 
 get_top_n_architectures(TOP_N)
+
+data = load_nas_data()
+data = sort_search_data(data)
+for seq_data in data[:TOP_N]:
+    print('Model')
+    model = nas_object.create_architecture(seq_data[0])
+    print(model.summary())
+    print("Evaluate inference time cost...")
+    latency_results = nas_object.evaluate_latency(model)
+    print(latency_results)
+    nas_object.load_shared_weights(model)
+    results = nas_object.inference_architecture(model)
+    print("test loss, test acc:", results)

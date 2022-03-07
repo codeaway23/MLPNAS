@@ -1,4 +1,11 @@
 import pickle
+import tvm
+from tvm import relay
+from tvm.relay import data_dep_optimization as ddo
+import tvm.relay.testing
+from tvm.contrib import graph_executor
+import keras
+import numpy as np
 import keras.backend as K
 from tensorflow.keras.utils import to_categorical
 from keras.preprocessing.sequence import pad_sequences
@@ -40,6 +47,12 @@ class MLPNAS(Controller):
             self.controller_model = self.control_model(
                 self.controller_input_shape, self.controller_batch_size)
 
+        #self.target_dev = "llvm -mcpu=core-avx2"
+        self.target_dev = "cuda"
+        #self.target_dev = "cuda -libs=cudnn"
+        self.tvm_opt_level = 0
+        self.tvm_module = ''
+
     def create_architecture(self, sequence):
         if self.target_classes == 2:
             self.model_generator.loss_func = 'binary_crossentropy'
@@ -53,6 +66,32 @@ class MLPNAS(Controller):
         history = self.model_generator.train_model(
             model, x, y, self.architecture_train_epochs)
         return history
+
+    def load_shared_weights(self, model):
+        self.model_generator.load_shared_weights(model)
+
+    def to_tvm_module(self, model):
+        shape_dict = {model.input_names[0]: (1, self.x.shape[1])}
+        mod, params = relay.frontend.from_keras(model, shape_dict)
+
+        target = tvm.target.Target(self.target_dev)
+        dev = tvm.device(str(target), 0)
+
+        with tvm.transform.PassContext(opt_level=self.tvm_opt_level):
+            lib = relay.build_module.build(mod, target=target, params=params)
+        module = graph_executor.GraphModule(lib["default"](dev))
+        data_tvm = tvm.nd.array(
+            (np.random.uniform(size=(1, self.x.shape[1]))).astype("float32"))
+        module.set_input(model.input_names[0], data_tvm)
+        return module, dev
+
+    def evaluate_latency(self, model):
+        module, dev = self.to_tvm_module(model)
+        return module.benchmark(dev, repeat=10, min_repeat_ms=500)
+
+    def inference_architecture(self, model):
+        results = self.model_generator.inference_model(model, self.x, self.y)
+        return results
 
     def append_model_metrics(self, sequence, history, pred_accuracy=None):
         if len(history.history['val_accuracy']) == 1:

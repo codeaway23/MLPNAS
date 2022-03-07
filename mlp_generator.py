@@ -147,6 +147,17 @@ class MLPGenerator(MLPSearchSpace):
                 j += 1
         self.shared_weights.to_pickle(self.weights_file)
 
+    def load_shared_weights(self, model):
+        all_subdirs = [
+            'LOGS/' + d for d in os.listdir('LOGS')
+            if os.path.isdir('LOGS/' + d)
+        ]
+        latest_subdir = max(all_subdirs, key=os.path.getmtime)
+        old_weights_file = os.path.basename(self.weights_file)
+        old_weights_file = os.path.join(latest_subdir, old_weights_file)
+        self.shared_weights = pd.read_pickle(old_weights_file)
+        self.set_model_weights(model)
+
     def set_model_weights(self, model):
         layer_configs = ['input']
         for layer in model.layers:
@@ -197,3 +208,7 @@ class MLPGenerator(MLPSearchSpace):
                                 callbacks=callbacks,
                                 verbose=0)
         return history
+
+    def inference_model(self, model, x_data, y_data):
+        results = model.evaluate(x_data, y_data, verbose=0)
+        return results

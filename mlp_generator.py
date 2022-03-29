@@ -19,6 +19,7 @@ class MLPSearchSpace(object):
         nodes = [8, 16, 32, 64, 128, 256, 512]
         act_funcs = ['sigmoid', 'tanh', 'relu', 'elu']
         layer_params = []
+        # NOTE: id: 0 is 'start' token
         layer_id = []
         for i in range(len(nodes)):
             for j in range(len(act_funcs)):

@@ -81,7 +81,8 @@ def get_top_n_architectures(n):
     search_space = MLPSearchSpace(TARGET_CLASSES)
     print('Top {} Architectures:'.format(n))
     for seq_data in data[:n]:
-        print('Architecture', search_space.decode_sequence(seq_data[0]))
+        print('Architecture', search_space.decode_sequence(seq_data[0]),
+              seq_data[0])
         print('Validation Accuracy:', seq_data[1])
 
 

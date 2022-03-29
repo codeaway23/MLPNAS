@@ -1,9 +1,11 @@
 import pickle
+import sys
 import tvm
 from tvm import relay
 from tvm.relay import data_dep_optimization as ddo
 import tvm.relay.testing
 from tvm.contrib import graph_executor
+import tensorflow as tf
 import keras
 import numpy as np
 import keras.backend as K
@@ -39,7 +41,8 @@ class MLPNAS(Controller):
         self.model_generator = MLPGenerator()
 
         self.controller_batch_size = len(self.data)
-        self.controller_input_shape = (1, MAX_ARCHITECTURE_LENGTH - 1)
+        self.controller_input_shape = (MAX_ARCHITECTURE_LENGTH,
+                                       self.controller_classes)
         if self.use_predictor:
             self.controller_model = self.hybrid_control_model(
                 self.controller_input_shape, self.controller_batch_size)
@@ -47,10 +50,10 @@ class MLPNAS(Controller):
             self.controller_model = self.control_model(
                 self.controller_input_shape, self.controller_batch_size)
 
-        #self.target_dev = "llvm -mcpu=core-avx2"
-        self.target_dev = "cuda"
+        self.target_dev = "llvm -mcpu=core-avx2"
+        #self.target_dev = "cuda"
         #self.target_dev = "cuda -libs=cudnn"
-        self.tvm_opt_level = 0
+        self.tvm_opt_level = 3
         self.tvm_module = ''
 
     def create_architecture(self, sequence):
@@ -99,6 +102,8 @@ class MLPNAS(Controller):
                 self.data.append([
                     sequence, history.history['val_accuracy'][0], pred_accuracy
                 ])
+                print('predict accuracy: ', pred_accuracy, ' (',
+                      pred_accuracy - history.history['val_accuracy'][0], ')')
             else:
                 self.data.append(
                     [sequence, history.history['val_accuracy'][0]])
@@ -111,19 +116,38 @@ class MLPNAS(Controller):
                 axis=-1)
             if pred_accuracy:
                 self.data.append([sequence, val_acc, pred_accuracy])
+                print('predict accuracy: ', pred_accuracy, ' (',
+                      pred_accuracy - val_acc, ')')
             else:
                 self.data.append([sequence, val_acc])
             print('validation accuracy: ', val_acc)
 
     def prepare_controller_data(self, sequences):
+        final_layer_id = len(self.vocab)
+        # pad with 'start' token
         controller_sequences = pad_sequences(sequences,
                                              maxlen=self.max_len,
-                                             padding='post')
-        xc = controller_sequences[:, :-1].reshape(len(controller_sequences), 1,
-                                                  self.max_len - 1)
-        yc = to_categorical(controller_sequences[:, -1],
-                            self.controller_classes)
-        val_acc_target = [item[1] for item in self.data]
+                                             padding='post',
+                                             value=final_layer_id)
+        controller_sequences = pad_sequences(sequences,
+                                             maxlen=self.max_len + 1,
+                                             padding='pre',
+                                             value=0)
+        xc = controller_sequences[:, :-1].reshape(len(controller_sequences),
+                                                  self.max_len, 1)
+        xc = to_categorical(xc, self.controller_classes)
+        yc = controller_sequences[:, 1:].reshape(len(controller_sequences),
+                                                 self.max_len, 1)
+        val_acc_target = []
+        for idx in range(len(self.data)):
+            data_arch = self.data[idx][0]
+            data_arch = np.pad(data_arch, (0, self.max_len - len(data_arch)),
+                               constant_values=final_layer_id)
+            data_acc = np.ones([self.max_len],
+                               dtype=np.float) * self.data[idx][1]
+            data_acc = np.where(data_arch == final_layer_id, data_acc, 0.0)
+            val_acc_target.append(data_acc)
+        val_acc_target = np.array(val_acc_target)
         return xc, yc, val_acc_target
 
     def get_discounted_reward(self, rewards):
@@ -140,13 +164,18 @@ class MLPNAS(Controller):
         return discounted_r
 
     def custom_loss(self, target, output):
-        baseline = 0.5
         reward = np.array([
-            item[1] - baseline
-            for item in self.data[-self.samples_per_controller_epoch:]
+            item[1] for item in self.data[-self.samples_per_controller_epoch:]
         ]).reshape(self.samples_per_controller_epoch, 1)
-        discounted_reward = self.get_discounted_reward(reward)
-        loss = -K.log(output) * discounted_reward[:, None]
+        reward_norm = (reward - reward.mean()) / (reward.std())
+
+        discounted_reward = self.get_discounted_reward(reward_norm)
+        # select action probability for each layer from target
+        # and get action probability for each architecture with
+        # conditional probability
+        sel_output = tf.gather(output, target, axis=2)
+        sel_output = tf.math.reduce_prod(sel_output, axis=1)
+        loss = -K.log(sel_output) * discounted_reward[:, None]
         return loss
 
     def train_controller(self, model, x, y, pred_accuracy=None):
@@ -171,23 +200,27 @@ class MLPNAS(Controller):
             )
             sequences = self.sample_architecture_sequences(
                 self.controller_model, self.samples_per_controller_epoch)
+            sys.stdout.flush()
             if self.use_predictor:
                 pred_accuracies = self.get_predicted_accuracies_hybrid_model(
                     self.controller_model, sequences)
             for i, sequence in enumerate(sequences):
-                print('Architecture: ', self.decode_sequence(sequence))
+                print('Architecture: ', self.decode_sequence(sequence),
+                      sequence)
                 model = self.create_architecture(sequence)
                 history = self.train_architecture(model)
                 if self.use_predictor:
                     self.append_model_metrics(sequence, history,
-                                              pred_accuracies[i])
+                                              pred_accuracies[i][0])
                 else:
                     self.append_model_metrics(sequence, history)
                 print('------------------------------------------------------')
+                sys.stdout.flush()
             xc, yc, val_acc_target = self.prepare_controller_data(sequences)
             self.train_controller(
                 self.controller_model, xc, yc,
                 val_acc_target[-self.samples_per_controller_epoch:])
+            sys.stdout.flush()
         with open(self.nas_data_log, 'wb') as f:
             pickle.dump(self.data, f)
         log_event()

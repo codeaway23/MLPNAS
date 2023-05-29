@@ -19,6 +19,7 @@ class MLPSearchSpace(object):
         nodes = [8, 16, 32, 64, 128, 256, 512]
         act_funcs = ['sigmoid', 'tanh', 'relu', 'elu']
         layer_params = []
+        # NOTE: id: 0 is 'start' token
         layer_id = []
         for i in range(len(nodes)):
             for j in range(len(act_funcs)):
@@ -65,10 +66,12 @@ class MLPGenerator(MLPSearchSpace):
 
         super().__init__(TARGET_CLASSES)
 
-
         if self.mlp_one_shot:
             self.weights_file = 'LOGS/shared_weights.pkl'
-            self.shared_weights = pd.DataFrame({'bigram_id': [], 'weights': []})
+            self.shared_weights = pd.DataFrame({
+                'bigram_id': [],
+                'weights': []
+            })
             if not os.path.exists(self.weights_file):
                 print("Initializing shared weights dictionary...")
                 self.shared_weights.to_pickle(self.weights_file)
@@ -82,23 +85,34 @@ class MLPGenerator(MLPSearchSpace):
                 if layer_conf is 'dropout':
                     model.add(Dropout(self.mlp_dropout, name='dropout'))
                 else:
-                    model.add(Dense(units=layer_conf[0], activation=layer_conf[1]))
+                    model.add(
+                        Dense(units=layer_conf[0], activation=layer_conf[1]))
         else:
             for i, layer_conf in enumerate(layer_configs):
                 if i == 0:
-                    model.add(Dense(units=layer_conf[0], activation=layer_conf[1], input_shape=mlp_input_shape))
+                    model.add(
+                        Dense(units=layer_conf[0],
+                              activation=layer_conf[1],
+                              input_shape=mlp_input_shape))
                 elif layer_conf is 'dropout':
                     model.add(Dropout(self.mlp_dropout, name='dropout'))
                 else:
-                    model.add(Dense(units=layer_conf[0], activation=layer_conf[1]))
+                    model.add(
+                        Dense(units=layer_conf[0], activation=layer_conf[1]))
         return model
 
     def compile_model(self, model):
         if self.mlp_optimizer == 'sgd':
-            optim = optimizers.SGD(lr=self.mlp_lr, decay=self.mlp_decay, momentum=self.mlp_momentum)
+            optim = optimizers.SGD(lr=self.mlp_lr,
+                                   decay=self.mlp_decay,
+                                   momentum=self.mlp_momentum)
         else:
-            optim = getattr(optimizers, self.mlp_optimizer)(lr=self.mlp_lr, decay=self.mlp_decay)
-        model.compile(loss=self.mlp_loss_func, optimizer=optim, metrics=self.metrics)
+            optim = getattr(optimizers,
+                            self.mlp_optimizer)(lr=self.mlp_lr,
+                                                decay=self.mlp_decay)
+        model.compile(loss=self.mlp_loss_func,
+                      optimizer=optim,
+                      metrics=self.metrics)
         return model
 
     def update_weights(self, model):
@@ -107,7 +121,8 @@ class MLPGenerator(MLPSearchSpace):
             if 'flatten' in layer.name:
                 layer_configs.append(('flatten'))
             elif 'dropout' not in layer.name:
-                layer_configs.append((layer.get_config()['units'], layer.get_config()['activation']))
+                layer_configs.append((layer.get_config()['units'],
+                                      layer.get_config()['activation']))
         config_ids = []
         for i in range(1, len(layer_configs)):
             config_ids.append((layer_configs[i - 1], layer_configs[i]))
@@ -121,13 +136,28 @@ class MLPGenerator(MLPSearchSpace):
                     if config_ids[j] == bigram_ids[i]:
                         search_index.append(i)
                 if len(search_index) == 0:
-                    self.shared_weights = self.shared_weights.append({'bigram_id': config_ids[j],
-                                                                      'weights': layer.get_weights()},
-                                                                     ignore_index=True)
+                    self.shared_weights = self.shared_weights.append(
+                        {
+                            'bigram_id': config_ids[j],
+                            'weights': layer.get_weights()
+                        },
+                        ignore_index=True)
                 else:
-                    self.shared_weights.at[search_index[0], 'weights'] = layer.get_weights()
+                    self.shared_weights.at[search_index[0],
+                                           'weights'] = layer.get_weights()
                 j += 1
         self.shared_weights.to_pickle(self.weights_file)
+
+    def load_shared_weights(self, model):
+        all_subdirs = [
+            'LOGS/' + d for d in os.listdir('LOGS')
+            if os.path.isdir('LOGS/' + d)
+        ]
+        latest_subdir = max(all_subdirs, key=os.path.getmtime)
+        old_weights_file = os.path.basename(self.weights_file)
+        old_weights_file = os.path.join(latest_subdir, old_weights_file)
+        self.shared_weights = pd.read_pickle(old_weights_file)
+        self.set_model_weights(model)
 
     def set_model_weights(self, model):
         layer_configs = ['input']
@@ -135,7 +165,8 @@ class MLPGenerator(MLPSearchSpace):
             if 'flatten' in layer.name:
                 layer_configs.append(('flatten'))
             elif 'dropout' not in layer.name:
-                layer_configs.append((layer.get_config()['units'], layer.get_config()['activation']))
+                layer_configs.append((layer.get_config()['units'],
+                                      layer.get_config()['activation']))
         config_ids = []
         for i in range(1, len(layer_configs)):
             config_ids.append((layer_configs[i - 1], layer_configs[i]))
@@ -150,10 +181,17 @@ class MLPGenerator(MLPSearchSpace):
                         search_index.append(i)
                 if len(search_index) > 0:
                     print("Transferring weights for layer:", config_ids[j])
-                    layer.set_weights(self.shared_weights['weights'].values[search_index[0]])
+                    layer.set_weights(
+                        self.shared_weights['weights'].values[search_index[0]])
                 j += 1
 
-    def train_model(self, model, x_data, y_data, nb_epochs, validation_split=0.1, callbacks=None):
+    def train_model(self,
+                    model,
+                    x_data,
+                    y_data,
+                    nb_epochs,
+                    validation_split=0.1,
+                    callbacks=None):
         if self.mlp_one_shot:
             self.set_model_weights(model)
             history = model.fit(x_data,
@@ -171,3 +209,7 @@ class MLPGenerator(MLPSearchSpace):
                                 callbacks=callbacks,
                                 verbose=0)
         return history
+
+    def inference_model(self, model, x_data, y_data):
+        results = model.evaluate(x_data, y_data, verbose=0)
+        return results
